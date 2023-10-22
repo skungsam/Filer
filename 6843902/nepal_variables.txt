@@ -1,0 +1,42 @@
+DepEcProv	Deprivation in economic provisioning
+PovIndex	Human Poverty Index
+PCInc	Per Capita Income 
+PCIncPPP	Per Capita Income PPP
+PCIncMP	"Per capita income, Rs. at market price"
+MalKids	Percentage of children under age five who are malnurished
+Lif40	Percentage of People not expected to survive age 40
+NoSafH20	Percentage without safe water
+Population	Population
+BoyG1_5	Number of Boys Enrolled in Grade 1-5
+GirlG1_5	Number of Girls Enrolled in Grade 1-5
+SchoolCnt	Number of Schools
+Ad_Illit	Adult illiteracy rate
+VotNum	Number of Voters (lunar year 2063)
+TotEcFMS	"Total economy including financial intermediationservice indirectly measured
+(total value added)"
+	
+Gross National Income by Sector
+AgFor	Agriculture and Forestry
+Const	Construction
+Educ	Education
+ElecGas	Electricity, gas and water
+FacInc	Factor Income
+FinInt	Financial intermediation
+Fishing	Fishing
+gdpMkt	GDP at market price
+GNI	GNI
+HlthSocWk	Health and social work
+HotelRest	Hotels and restaurants
+Manuf	Manufacturing
+MinQuar	Mining and quarrying
+OthSvce	"Other community, social and personal services activities"
+PAdmDef	"Public administration and defense"
+REstBiz	"Real estate, renting and business activities"
+TransStor	"Transport, storage and communications"
+RetailWS	Wholesale and retail trade
+	
+Project Data from AidData Aggregated to District	
+	
+Muti-Year (1997-2014 with most projects from 2007-14)
+XXDAmt	Project Sector Distributed Amount: XX = sector: Agriculture, Business Banking, Communication, Conflict Resolution,  Budget Support + Finance, Education, Energy,  Environment, Forestry, Gov + Civil Society, Health, Humanitarian Aid, Industry, Multi-Sector, Social Infrastructure, Tourism, Transport + Storage, Water Sanitation, Total
+XXCAmt	Project Sector Committed Amount: XX = sector (see above)

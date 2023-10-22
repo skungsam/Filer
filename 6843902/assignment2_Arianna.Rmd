@@ -1,0 +1,309 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+
+#INTRODUZIONE ED OBIETTIVO DEL REPORT 
+Il report si propone di eseguire un'analisi esplorativa e spaziale dello 
+standard di vita (in termini socioeconomici) nei 75 distretti regionali
+del Nepal. Il dataset utilizzato in questa sede riporta, 
+per ciascuno dei 75 distretti, le realizzazioni di diverse variabili, ovvero
+indici, relativi a condizioni di sviluppo umano e socio-economico.
+Nell'analisi proposta la variabile oggetto di studio corrisponde all'indice di
+povertà (Human Poverty Index), uno "score" aggregato sviluppato dalle Nazioni 
+Unite combinando dati relativi a tre fondamentali ambiti di sviluppo umano: 
+reddito pro-capite, livello di educazione, stato di salute.
+Il report proporrà un'analisi esplorativa della distribuzione dell'indice nei
+vari distretti, a partire dalle osservazioni del dataset, proseguendo con 
+un'analisi dell'autocorrelazione spaziale, globale e locale, dell'indice stesso.
+
+#ANALISI ESPLORATIVA
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+library(spdep)
+library(sp)
+library(sf)
+
+nepal<-as(st_read("Nepal.shp"), "Spatial")
+View(nepal@data)
+plot(nepal)
+```
+La seguente mappa rappresenta il Nepal diviso in 75 distretti.
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+colorRED <- colorRampPalette(c("white", "red"))( 50 )
+a <- spplot(nepal, "POVINDEX", col.regions=colorRED, main="Distribuzione 
+            distrettuale dell'indice di povertà")
+print(a, position = c(0,0,1,1),more=T)
+summary(nepal$POVINDEX)
+```
+Come già anticipato, la nostra analisi sarà incentrata sulla distribuzione 
+spaziale nei vari distretti del Nepal dell'indice di povertà "POVINDEX", che 
+misura la percentuale di famiglie le quali, rispetto alla popolazione totale 
+della regione considerata, vivono al di sotto della soglia di povertà, sono 
+analfabete e non dispongono di accesso a cure mediche.
+L'indice medio nazionale si attesta sul valore di 33.80, indicativo di come il
+33,8 % della popolazione nepalese in media viva al di sotto della soglia di 
+povertà, come intesa dall'indice. Il valore massimo di POVINDEX è attribuito al 
+ditretto di Humla, attestando che nella regione sussistono le peggiori 
+condizioni di vita della nazione.
+È possibile osservare che il valore minimo (e quindi corrispondente a condizioni socio-economiche migliori) figurato è pari a 16.50, un valore piuttosto alto considerato che è al di sotto solamente di poco più di un punto percentuale all'MPI del 2022  pari a 18. Si prende in considerazione il Multidimensional poverty index perchè dal 2010 questo indice ha sostituito l'HPI.
+Osservando il dataset, valori dell'indice inferiori a 20 si riscontrano 
+ugualmente nei distretti di Lalitpur e Bahktapur. Interessante anche annotare 
+come il tenore di vita della capitale, Kathmandu, sia superiore alla media 
+nazionale (valore di 22.45).
+
+Segue un'analisi della distribuzione della variabile POVINDEX in Nepal, a 
+partire dalle osservazioni campionarie.
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+
+summary(nepal$POVINDEX)
+boxplot(nepal$POVINDEX)
+
+bb <- c(min(nepal$POVINDEX), boxplot(nepal$POVINDEX, plot=FALSE)$stats[2:4], max(nepal$POVINDEX))
+bb
+
+box_map <- cut(nepal$POVINDEX, breaks = bb,include.lowest=TRUE,
+labels = c( "min-Q1", "Q1-Mediana", "Mediana-Q3", "Q3-Max"))
+nepal$box_map <- box_map
+color=c("blue", "orange", "pink", "red")
+layout(matrix(c(1,2),nrow=1), widths=c(2.5,1))
+plot(nepal, col=color[box_map])
+legend(x="bottom",legend=c( "min-Q1", "Q1-Mediana", "Mediana-Q3", "Q3-Max"),
+x.intersp=0.8,y.intersp=0.7,
+col=color,pch=15,bty="n",cex=0.8)
+boxplot(nepal$POVINDEX, plot=TRUE )
+
+```
+La mappa destina ciascuna rilevazione distrettuale della variabile POVINDEX al 
+quartile di appartenenza. Il boxplot associato mostra come le osservazioni siano 
+distribuite piuttosto omogeneamente nei vari quartili**(omogeneamente intendi con la stessa frequenza? Guardando l'istogramma mi sembrano più concentrate nei valori medio alti, in particolare nel secondo e terzo quartile)**; inoltre non si riporta la presenza di outliers.
+
+A livello areale, si osserva la presenza di due agglomerazioni spaziali, 
+comprendenti i distretti caratterizzati dai valori HPI più elevati (quarto 
+quartile), dove si riscontra un tenore di vita inferiore alla media nazionale:
+- in corrispondenza dell'area himalayana Nord-occidentale
+- in corrispondenza della regione pianeggiante Sud-orientale, al confine con
+l'India.
+Parallelamente, nella regione centrale del Paese (ovvero in corrispondenza dei 
+principali insediamenti urbani nepalesi) i valori dell'indice di povertà 
+suggeriscono tenori di vita migliori rispetto alla media nazionale.
+Queste osservazioni suggeriscono la presenza di una marcata autocorrelazione 
+spaziale della variabile, che sarà analizzata nelle sezioni successive del report.
+
+I valori mediano e medio della variabile si attestano entrambi attorno alla 
+cifra di circa 33.5, a riconfermare **a riconfermare da quanto detto nel boxplot?** una simmetria marcata nella distribuzione.
+Per analizzare e testare più esaustivamente l'ipotesi di normalità della 
+distribuzione della variabile POVINDEX, è utile raffigurare un istogramma
+(può essere utile?)**dall'istogramma non sembra simmetrica**
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+hist(nepal$POVINDEX, freq=FALSE)
+lines(density(nepal$POVINDEX))
+```
+L'istogramma accenna ad una distribuzione della frequenza dei valori che si 
+discosta parzialmente dalla campana gaussiana. **secondo me si discosta abbastanza, perchè nei valori bassi si ha una frequenza molto minore rispetto a quella nei valori alti, avendo 2 code asimmetriche**
+
+
+#STRUTTURA DI VICINATO
+
+Affinchè possa essere svolto uno studio sull'autocorrelazione spaziale della 
+variabile POVINDEX, è opportuno stabilire dapprima una struttura di vicinato.
+Nota bene: vi sono differenti criteri sulla base dei quali impostare la stessa. Un'estensione del presente report potrebbe replicare l'analisi di autocorrelazione spaziale a partire dalle diverse strutture di vicinato realizzate.
+
+Si imposta di seguito una struttura di vicinato incentrata sul criterio di 
+contiguità, individuando quindi come "vicine" quelle aree che hanno almeno un
+punto dei propri perimetri in comune. La contiguità impostata sarà di primo 
+ordine, ovvero saranno considerate "vicine" le aree raggiungibili con una sola
+"mossa".
+
+Impostiamo dapprima il criterio di contiguità di primo ordine sulla base del
+movimento della "Regina": 1 movimento perpendicolare o diagonale permette di
+raggiungere i "vicini" di primo ordine.
+In seguito confrontiamo con il criterio di continguità di primo ordine impostato
+sul movimento della "Torre": 1 movimento perpendicolare permette di raggiungere
+i "vicini" di primo ordine.
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+nepal_nb <- poly2nb(nepal)
+summary(nepal_nb)
+
+nepal_nb_torre <- poly2nb(nepal, queen=FALSE)
+summary(nepal_nb_torre)
+
+plot(nepal, border="grey40")
+plot(nepal_nb, coordinates(nepal), pch=19, cex=0.4,add=TRUE, col="blue")
+plot(nepal_nb_torre, coordinates(nepal), pch=19, cex=0.4, add=TRUE,col="red")
+```
+Non vi sono differenze tra la struttura di vicinato realizzata attraverso il 
+criterio "Torre" o il criterio "Regina",in quanto non sono presenti regioni che 
+in comune presentano solamente un punto.
+
+In seguito alla realizzazione della struttura di vicinato di primo ordine, è 
+opportuno attribuire a ciascuna coppia di aree, sulla base del loro legame di 
+vicinato, rispettivi pesi "w".
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+nepal_nb_W <- nb2listw(nepal_nb)
+nepal_nb_W
+
+nepal_nb_B <- nb2listw(nepal_nb, style="B", zero.policy=TRUE)
+nepal_nb_B
+
+names(nepal_nb_B)
+class(nepal_nb_B)
+
+```
+Sono state create la matrice nepal_nb_W con pesi standardizzati per riga, in modo che la loro somma sia =1, e la matrice binaria nepal_nb_B con peso=1 per le 
+regioni contigue (legame di vicinato esistente) e peso=0 per le regioni non 
+contigue (assenza di legame).
+
+
+
+#AUTOCORRELAZIONE SPAZIALE: ESECUZIONE DEL MORAN TEST.
+
+A seguito dell'attribuzione di pesi ai vari legami di vicinato fra coppie di 
+aree, si procede con lo studio dell'autocorrelazione spaziale globale della 
+variabile POVINDEX.
+A tal scopo si procede calcolando l'Indice I di Moran, la misura di 
+autocorrelazione spaziale più diffusa, per eseguire di seguito una statistica 
+test per verificare l'ipotesi H0 di assenza di autocorrelazione spaziale nel 
+fenomeno.
+
+##TEST DI MORAN ASINTOTICO
+Si effettua dapprima il test di Moran asintotico, sotto assunzione di normalità
+della distribuzione della variabile.
+
+In secondo luogo, si effettua il test di Moran asintotico sotto ipotesi di 
+spatial randomisation per calcolare la varianza. La varianza esposta dal test
+equivale a quella che si otterrebbe derivando le stime dell'indice di Moran su 
+tutte le possibili permutazioni dei dati osservati per la variabile.
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+ moran.test(nepal$POVINDEX, listw=nepal_nb_W, randomisation=FALSE )
+
+ moran.test(nepal$POVINDEX, listw=nepal_nb_W, randomisation=TRUE )
+```
+Rifiutiamo l'ipotesi nulla (ovvero: assenza di autocorrelazione spaziale), dato 
+il valore del p-value, sia nel test con randomizzazione che nel test senza 
+randomizzazione e sotto assunzione di normalità. 
+Osservato il valore positivo dell'indice di Moran, è possibile affermare che si 
+riscontra un'autocorrelazione positiva nel fenomeno spaziale POVINDEX, quindi 
+complessivamente i distretti vicini tra loro presentano valori di indice di 
+povertà simili.
+
+Nota bene: considerando diversi ordini di contiguità e/o strutture di
+vicinato si possono ottenere risultati del test leggermente differenti.
+
+##TEST DI PERMUTAZIONE 
+Addizionalmente, un metodo ulteriore (e più affidabile) per verificare o meno
+l'assenza di autocorrelazione spaziale è il test di permutazione. Esso consiste 
+nell'assegnare casualmente N volte i valori osservati alle diverse aree del Nepal,
+per un numero di N permutazioni. Per ognuna delle N permutazioni, si calcola il 
+test I di Moran.
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+set.seed(1234)
+bperm <- moran.mc(nepal$POVINDEX, listw=nepal_nb_W, nsim=999)
+bperm
+
+
+morp <- bperm$res[1:length(bperm$res)-1]
+zz <- density(morp)
+plot(zz,main="Moran's I Permutation Test",
+xlab="Simulated Moran's I", xlim=c(-0.3,0.7), ylim=c(0,18),lwd=2,col=2)
+hist(morp, breaks=30,freq=F,add=T)
+abline(v=bperm$statistic, col="blue", lty=5)
+axis(side=1, at=round(bperm$statistic, digits=4), cex.axis=0.85,
+col.axis="blue", tick=FALSE, pos=0)
+mtext(side=3, text="Moran's I", at=bperm$statistic, cex=0.7)
+```
+Un'ulteriore conferma che l'ipotesi H0 di non autocorrelazione non deve essere 
+accettata è riscontrata nel seguente grafico: l'indice di Moran del caso 
+reale (sul campione osservato) si trova al di fuori della distribuzione dei valori
+dei test delle permutazioni, con una considerevole distanza dal valore medio. 
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+moran.plot(x = as.vector(scale(nepal$POVINDEX, center=TRUE, scale=TRUE))
+, listw = nepal_nb_W, xlab="Standardized MEDV",
+ylab="Spatial lag standardized POVINDEX (W_POVINDEX)", zero.policy=TRUE,
+labels=FALSE)
+mtext(side=3, text=paste("Moran's I", round(bperm$statistic,
+digits=4), sep=" = "))
+
+```
+Qui è possibile osservare come i valori dei distretti (asse delle ascisse) e la media pesata nei siti vicini assumino valori simili, situandosi nella maggior parte dei casi vicino alla diagonale. Sono presenti molteplici punti lontani dall'origine, i quali hanno un maggior peso nella realizzazione dell'indice di Moran.
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+nepal$W_POVINDEX_W <- lag.listw(var=nepal$POVINDEX, x=nepal_nb_W)
+ST_POVINDEX <- scale(nepal$POVINDEX, center=TRUE, scale=TRUE)
+W_ST_POVINDEX_W <- scale(nepal$W_POVINDEX_W, center=TRUE, scale=TRUE)
+nepal$ST_POVINDEX <- ST_POVINDEX
+nepal$W_ST_POVINDEX_W <- W_ST_POVINDEX_W
+
+L1 <- factor(nepal$ST_POVINDEX < mean(nepal$ST_POVINDEX),
+labels=c("High", "Low"))
+L2 <- factor(nepal$W_ST_POVINDEX_W < mean(nepal$W_ST_POVINDEX_W),
+labels=c("High", "Low"))
+Mor_map <- paste(L1, L2, sep="-")
+nepal$Mor_map <- factor(Mor_map)
+spplot(nepal, "Mor_map", col.regions=c("red", "orange",
+"grey", "blue"))
+```
+I distretti rappresentati vengono clusterizzati in base al valore dell'indice di povertà del distretto stesso e la media pesata delle aree contigue. Si confermano le aree più povere a nord-ovest e sud-est del Nepal e inoltre si osserva come i distretti in quele aree siano contigui a distretti con alti valori di indice di povertà. La stessa osservazione può essere fatta per la maggior parte dei distretti con un basso valore di indice di povertà. Infatti il numero di distretti contigui ad altri  con una media di valore più alto o più basso (low-high e high-low) ammonta solamente a 12, confermando una forte autocorrelazione positiva.
+
+
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+LISA_W <- localmoran(nepal$POVINDEX, listw=nepal_nb_W, zero.policy=TRUE)
+LISA_W[1:10,]
+
+```
+Questi valori sono gl indici di Moran di 10 ditretti del Nepal. E' possibile osservare attraverso i p-value che non tutti presentano valori statisticamente significativi, per questo sarà necessaria un ulteriore analisi che tenga conto della significatività degli indici per ogni distretto attraverso un'ulteriore raffigurazione della mappa del Nepal. Il valore atteso inoltre non è sempre lo stesso: una delle possibili spiegazioni è la bassa numerosità del campione.
+
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+nepal$LISA <- LISA_W[, 1]
+sum(LISA_W[,1])/75 
+
+nepal$LISAp <- LISA_W[, 5]
+
+summary(nepal$LISA)
+
+colorBLACK <- colorRampPalette(c("white", "black"))( 50 )
+spplot(nepal, "LISA", col.regions=colorBLACK)
+
+sign_map <- cut(nepal$LISAp, breaks = c(0, 0.001, 0.01, 0.05, Inf),
+labels = c( "< 0.001", "< 0.01", "< 0.05", "Not significant"))
+
+nepal$sign_map <- sign_map
+spplot(nepal, "sign_map", col.regions=c( "blue4", "blue",
+"grey", "white"))
+
+```
+Dalla seguente mappa è possibile notare come le regioni con indici di Moran statisticamente significativi siano solamente 24. 
+
+
+```{r echo= TRUE, message=FALSE, warning=FALSE}
+
+clust <- ifelse(nepal$LISAp < 0.05, (nepal$Mor_map), "Not significant")
+table(clust)
+
+labels=c( "HH","HL","LH", "LL","Not significant")
+col.regions=c("red", "lightpink", "lightslateblue", "blue")
+nepal$clust <- factor(clust, labels=c( "High-High", "Low-Low","Not significant"))
+spplot(nepal, "clust", col.regions=c("red", "blue","white" ))
+
+```
+In questo caso sono presenti solamente le aree Low-Low e High-High in quanto statisticamente significative con p-value < 0,05.
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
